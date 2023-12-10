@@ -2,13 +2,13 @@
 # export PATH=$HOME/bin:/usr/local/bin:$PATH
 
 # Path to your oh-my-zsh installation.
-export ZSH="$HOME/.config/zsh/.oh-my-zsh"
+#export ZSH="$HOME/.config/zsh/.oh-my-zsh"
 
 # Set name of the theme to load --- if set to "random", it will
 # load a random theme each time oh-my-zsh is loaded, in which case,
 # to know which specific one was loaded, run: echo $RANDOM_THEME
 # See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
-ZSH_THEME="fino-time"
+#ZSH_THEME="fino-time"
 
 # Set list of themes to pick from when loading at random
 # Setting this variable when ZSH_THEME=random will cause zsh to load
@@ -70,11 +70,14 @@ ZSH_THEME="fino-time"
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(git)
+#plugins=(git)
 
-source $ZSH/oh-my-zsh.sh
+#source $ZSH/oh-my-zsh.sh
 source .config/zsh/aliases.zsh
 source .config/zsh/functions.zsh
+source .config/zsh/.oh-my-zsh-plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
+source .config/zsh/.oh-my-zsh-plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+source .config/zsh/.oh-my-zsh-plugins/powerlevel10k/powerlevel10k.zsh-theme
 
 # User configuration
 
@@ -99,5 +102,5 @@ source .config/zsh/functions.zsh
 # For a full list of active aliases, run `alias`.
 #
 # Example aliases
- alias zshconfig="mate ~/.zshrc"
+ alias zshconfig="nvim ~/dotfiles/zsh/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
