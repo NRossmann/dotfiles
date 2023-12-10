@@ -1,11 +1,13 @@
 #!/bin/bash
 sudo apt update;
 sudo apt upgrade -y;
-sudo apt install zsh tmux stow guix -y;
-sudo guix pull;
-sudo guix package --install neovim;
-GUIX_PROFILE="$HOME/.guix-profile";
-. "$GUIX_PROFILE/etc/profile";
+sudo apt install zsh tmux stow python3 python3-pip nodejs npm ruby gem libfuse2 -y;
+cd;
+mkdir .appImage;
+cd .appImage;
+curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim.appimage;
+chmod u+x nvim.appimage;
+cd;
 mkdir ~/.config;
 mkdir ~/.config/zsh;
 cd;

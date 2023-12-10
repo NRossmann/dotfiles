@@ -65,7 +65,7 @@ augroup auto_commands
 augroup END
 
 call plug#begin()
-  Plug 'elvessousa/sobrio'
+Plug 'catppuccin/nvim', { 'as': 'catppuccin' }
 call plug#end()
 
-colorscheme sobrio
+colorscheme catppuccin

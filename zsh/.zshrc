@@ -73,6 +73,8 @@ ZSH_THEME="fino-time"
 plugins=(git)
 
 source $ZSH/oh-my-zsh.sh
+source .config/zsh/aliases.zsh
+source .config/zsh/functions.zsh
 
 # User configuration
 
@@ -97,5 +99,5 @@ source $ZSH/oh-my-zsh.sh
 # For a full list of active aliases, run `alias`.
 #
 # Example aliases
-# alias zshconfig="mate ~/.zshrc"
+ alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"

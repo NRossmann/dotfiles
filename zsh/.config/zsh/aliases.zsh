@@ -1,4 +1,5 @@
 #Neovim
+alias nvim="~/.appImage/nvim.appimage"
 alias vim="nvim"
 
 #Misc
