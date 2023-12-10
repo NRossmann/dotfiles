@@ -19,10 +19,7 @@ mkdir ~/.config;
 mkdir ~/.config/zsh;
 
 
-#Git Repo mit Submodulen init
-git clone https://github.com/NRossmann/dotfiles.git;
-git submodule init;
-git submodule update;
+#Stow Files
 cd dotfiles;
 stow */;
 
