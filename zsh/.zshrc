@@ -66,3 +66,6 @@ bindkey '^p' history-search-backward
 bindkey '^n' history-search-forward
 bindkey ' '  magic-space
 
+#My Aliases
+source .config/zsh/aliases.zsh
+source .config/zsh/functions.zsh
