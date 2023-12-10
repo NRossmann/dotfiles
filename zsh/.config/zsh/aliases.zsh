@@ -7,6 +7,13 @@ alias ls="ls --color=auto"
 alias la="ls -la"
 alias ll="ls -l"
 
+#tmux
+alias tmuxconfig="nvim ~/dotfiles/tmux/.tmux.conf"
+alias tmuxreload="tmux source-file ~/.tmux.conf"
+alias tmux="tmux -2"
+
+#Ansible
+alias edit-hosts="nvim /etc/ansible/hosts"
 
 #Misc
 alias zsh-reload="source ~/.zshrc"
