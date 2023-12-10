@@ -3,7 +3,7 @@
 #APT Update/Install
 sudo apt update;
 sudo apt upgrade -y;
-sudo apt install zsh tmux stow python3 python3-pip nodejs npm ruby gem libfuse2 -y;
+sudo apt install git gh zsh tmux stow python3 python3-pip nodejs npm ruby gem libfuse2 -y;
 
 #Neovim Install
 cd;
