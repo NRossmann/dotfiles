@@ -18,5 +18,5 @@ alias edit-hosts="nvim /etc/ansible/hosts"
 #Misc
 alias zsh-reload="source ~/.zshrc"
 alias addalias="nvim ~/dotfiles/zsh/.config/zsh/aliases.zsh"
-alias zshconfig="nvim ~/dotfiles/zsh/.zshrc/"
+alias zshconfig="nvim ~/dotfiles/zsh/.zshrc"
 alias p10kconfig="nvim ~/dotfiles/zsh/.p10k.zsh"

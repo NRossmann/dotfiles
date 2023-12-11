@@ -10,3 +10,6 @@
 [submodule "zsh/.config/zsh/.oh-my-zsh-plugins/powerlevel10k"]
 	path = zsh/.config/zsh/.oh-my-zsh-plugins/powerlevel10k
 	url = https://github.com/romkatv/powerlevel10k.git
+[submodule "zsh/.config/zsh/.oh-my-zsh--force"]
+	path = zsh/.config/zsh/.oh-my-zsh--force
+	url = https://github.com/ohmyzsh/ohmyzsh.git
