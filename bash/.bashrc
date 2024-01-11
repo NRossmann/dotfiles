@@ -35,16 +35,10 @@ export PS1='\[\e[1;38;5;244m\]\t \[\e[1;36m\]\u@\H \[\e[1;33m\]\w \[\e[1;36m\]\$
 ## ls, exa & more colored stuff ##
 ##################################
 
-if which exa >/dev/null; then
-	# exa is a modern ls replacement with Git integration: https://the.exa.website
-	alias ls="exa --git-ignore"
-	alias ll="exa --git-ignore --git -l --group"
-	alias la="exa --git -la"
-else
-	alias ls="ls --color=always"
-	alias ll="ls -l"
-	alias la="ls -lA"
-fi
+alias ls="ls --color=always"
+alias ll="ls -l"
+alias la="ls -lA"
+
 for alias in lsl sls lsls sl l s; do alias $alias=ls; done
 
 # colored GCC warnings and errors
@@ -77,35 +71,13 @@ shopt -s checkwinsize
 # match all files and zero or more directories and subdirectories.
 shopt -s globstar
 
-####################################################################
-## Type :W in vim (or :WQ respectively) to save a file using sudo ##
-####################################################################
-
-if which vim >/dev/null && ! grep '^command W ' ~/.vimrc >/dev/null 2>&1 && ! [ `id -u` -eq 0 ]; then
-	echo "command W :execute ':silent w !sudo tee % > /dev/null' | :if v:shell_error | :edit! | :endif" >> ~/.vimrc
-fi
-
-#############################
-## Warn about root shells! ##
-#############################
-
-if [ `id -u` -eq 0 ]; then 
-    start="\033[1;37;41m"
-    end="\033[0m"
-    printf "\n"
-    printf "  $start                                                                       $end\n"
-    printf "  $start  WARNING: You are in a root shell. This is probably a very bad idea.  $end\n"
-    printf "  $start                                                                       $end\n"
-    printf "\n"
-fi
-
 #########################
 ## Path & Applications ##
 #########################
 
 # Setup GOPATH
-export GOPATH="$HOME/.local/lib/go"
-export PATH="$GOPATH/bin:$PATH"
+#export GOPATH="$HOME/.local/lib/go"
+#export PATH="$GOPATH/bin:$PATH"
 
 # Setup npm global installs without sudo
 export NPMPATH="$HOME/.local/lib/npm"
@@ -124,11 +96,11 @@ export PATH="$HOME/.local/bin:$PATH"
 
 # Send command output to qbin.io for quick & easy sharing (stored for 14 days)
 # Usage: echo "Hello World" | qbin
-alias qbin="curl https://qbin.io -s -T -"
+#alias qbin="curl https://qbin.io -s -T -"
 
 # Upload bigger & binary files to transfer.sh (stored for 14 days)
 # transfer anything.tar.gz
-transfer() { if [ $# -eq 0 ]; then echo -e "No arguments specified. Usage:\necho transfer /tmp/test.md\ncat /tmp/test.md | transfer test.md"; return 1; fi; tmpfile=$( mktemp -t transferXXX ); if tty -s; then basefile=$(basename "$1" | sed -e 's/[^a-zA-Z0-9._-]/-/g'); curl --progress-bar --upload-file "$1" "https://transfer.sh/$basefile" >> $tmpfile; else curl --progress-bar --upload-file "-" "https://transfer.sh/$1" >> $tmpfile ; fi; cat $tmpfile; rm -f $tmpfile; }
+#transfer() { if [ $# -eq 0 ]; then echo -e "No arguments specified. Usage:\necho transfer /tmp/test.md\ncat /tmp/test.md | transfer test.md"; return 1; fi; tmpfile=$( mktemp -t transferXXX ); if tty -s; then basefile=$(basename "$1" | sed -e 's/[^a-zA-Z0-9._-]/-/g'); curl --progress-bar --upload-file "$1" "https://transfer.sh/$basefile" >> $tmpfile; else curl --progress-bar --upload-file "-" "https://transfer.sh/$1" >> $tmpfile ; fi; cat $tmpfile; rm -f $tmpfile; }
 
 ###########################
 ## Other helpful aliases ##
@@ -147,41 +119,6 @@ alias pw='bash -c '"'"'echo `tr -dc $([ $# -gt 1 ] && echo $2 || echo "A-Za-z0-9
 # View pressure stall information
 alias pressure="grep -n '[^ ]*=' /proc/pressure/*"
 
-###########################
-## Ubuntu-specific stuff ##
-###########################
-
-# make less more friendly for non-text input files, see lesspipe(1)
-[ -x /usr/bin/lesspipe ] && eval "$(SHELL=/bin/sh lesspipe)"
-
-# enable programmable completion features (you don't need to enable
-# this, if it's already enabled in /etc/bash.bashrc and /etc/profile
-# sources /etc/bash.bashrc).
-if ! shopt -oq posix; then
-  if [ -f /usr/share/bash-completion/bash_completion ]; then
-    . /usr/share/bash-completion/bash_completion
-  elif [ -f /etc/bash_completion ]; then
-    . /etc/bash_completion
-  fi
-fi
-
-# Ubuntu already had an "fd" package, so the one I'd like to use is called "fdfind".
-! which fdfind >/dev/null || alias fd=fdfind
-
 ##################
 ## Custom stuff ##
 ##################
-
-# I have a few environment variables (paths for Go & node.js) set in environment.d - I'd like to also use them in the terminal.
-if [ "$(ls ~/.config/environment.d/ 2>/dev/null)" != "" ]; then
-  for f in ~/.config/environment.d/*; do
-    source "$f"
-  done
-fi
-
-# I'm using Tilix, which requires sourcing this script
-if [ $TILIX_ID ] || [ $VTE_VERSION ]; then
-  if [ -e /etc/profile.d/vte.sh ]; then
-    source /etc/profile.d/vte.sh
-  fi
-fi
