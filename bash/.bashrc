@@ -9,6 +9,12 @@
 # wget https://go.momar.de/bashrc -O ~/.bashrc                                                    #
 ###################################################################################################
 
+# If not running interactively, don't do anything
+case $- in
+    *i*) ;;
+      *) return;;
+esac
+
 ###########
 ## Color ##
 ###########
