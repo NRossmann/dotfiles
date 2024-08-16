@@ -1,56 +1,9 @@
-###################################################################################################
-# This is a very simple .bashrc file that I'm using on a daily basis.                             #
-# It completely replaced my zsh setup, and should be relatively simple to understand and modify.  #
-#                                                                                                 #
-# Built by Moritz (mo-mar.de) - just do whatever you want with it, according to the Unlicense:    #
-# https://choosealicense.com/licenses/unlicense/                                                  #
-#                                                                                                 #
-# Simple installation:                                                                            #
-# wget https://go.momar.de/bashrc -O ~/.bashrc                                                    #
-###################################################################################################
+# ~/.bashrc: executed by bash(1) for non-login shells.
+# see /usr/share/doc/bash/examples/startup-files (in the package bash-doc)
+# for examples
 
 # If not running interactively, don't do anything
-case $- in
-    *i*) ;;
-      *) return;;
-esac
-
-###########
-## Color ##
-###########
-
-# Normal Bash
-export PS1='\[\e[1;38;5;244m\]\t \[\e[1;36m\]\u@\H \[\e[1;33m\]\w \[\e[1;36m\]\$ \[\e[0m\]' 
-
-# Alpine Linux / ash
-# export PS1='\[\e[1;38;5;244m\]$(date +%H:%M:%S) \[\e[1;36m\]\u@\H \[\e[1;33m\]\w \[\e[1;36m\]\$ \[\e[0m\]'
-
-# Termux (without user@host)
-# export PS1='\[\e[1;38;5;244m\]\t \[\e[1;33m\]\w \[\e[1;36m\]\$ \[\e[0m\]'
-
-# Minimal without path to working directory (~ $)
-# export PS1='\[\e[1;33m\]\W \[\e[1;36m\]\$ \[\e[0m\]'
-
-##################################
-## ls, exa & more colored stuff ##
-##################################
-
-alias ls="ls --color=always"
-alias ll="ls -l"
-alias la="ls -lA"
-
-for alias in lsl sls lsls sl l s; do alias $alias=ls; done
-
-# colored GCC warnings and errors
-export GCC_COLORS='error=01;31:warning=01;35:note=01;36:caret=01;32:locus=01:quote=01'
-
-########################################
-## Cool bash features nobody knows of ##
-########################################
-
-# search through history with up/down arrows
-bind '"\e[A": history-search-backward' 2>/dev/null
-bind '"\e[B": history-search-forward' 2>/dev/null
+[ -z "$PS1" ] && return
 
 # don't put duplicate lines or lines starting with space in the history.
 # See bash(1) for more options
@@ -69,56 +22,77 @@ shopt -s checkwinsize
 
 # If set, the pattern "**" used in a pathname expansion context will
 # match all files and zero or more directories and subdirectories.
-shopt -s globstar
+#shopt -s globstar
 
-#########################
-## Path & Applications ##
-#########################
+# make less more friendly for non-text input files, see lesspipe(1)
+[ -x /opt/bin/lesspipe ] && eval "$(SHELL=/system/bin/sh lesspipe)"
 
-# Setup GOPATH
-#export GOPATH="$HOME/.local/lib/go"
-#export PATH="$GOPATH/bin:$PATH"
+# Using color promt
+if [[ ${EUID} == 0 ]] ; then
+    PS1='\[\033[48;2;221;75;57;38;2;255;255;255m\] \$ \[\033[48;2;0;135;175;38;2;221;75;57m\]\[\033[48;2;0;135;175;38;2;255;255;255m\] \h \[\033[48;2;83;85;85;38;2;0;135;175m\]\[\033[48;2;83;85;85;38;2;255;255;255m\] \w \[\033[49;38;2;83;85;85m\]\[\033[00m\] '
+else
+    PS1='\[\033[48;2;105;121;16;38;2;255;255;255m\] \$ \[\033[48;2;0;135;175;38;2;105;121;16m\]\[\033[48;2;0;135;175;38;2;255;255;255m\] \u@\h \[\033[48;2;83;85;85;38;2;0;135;175m\]\[\033[48;2;83;85;85;38;2;255;255;255m\] \w \[\033[49;38;2;83;85;85m\]\[\033[00m\] '
+fi
+# Some better definitions
+alias cp="cp -i"                          # confirm before overwriting something
+alias df='df -h'                          # human-readable sizes
+alias free='free -m'                      # show sizes in MB
+alias more=less
 
-# Setup npm global installs without sudo
-export NPMPATH="$HOME/.local/lib/npm"
-export PATH="$NPMPATH/bin:$PATH"
-[ -f ~/.npmrc ] || ! which npm >/dev/null || echo "prefix=$NPMPATH" > ~/.npmrc
+#
+# # ex - archive extractor
+# # usage: ex <file>
+ex ()
+{
+  if [ -f $1 ] ; then
+    case $1 in
+      *.tar.bz2)   tar xjf $1   ;;
+      *.tar.gz)    tar xzf $1   ;;
+      *.bz2)       bunzip2 $1   ;;
+      *.rar)       unrar x $1     ;;
+      *.gz)        gunzip $1    ;;
+      *.tar)       tar xf $1    ;;
+      *.tbz2)      tar xjf $1   ;;
+      *.tgz)       tar xzf $1   ;;
+      *.zip)       unzip $1     ;;
+      *.Z)         uncompress $1;;
+      *.7z)        7z x $1      ;;
+      *)           echo "'$1' cannot be extracted via ex()" ;;
+    esac
+  else
+    echo "'$1' is not a valid file"
+  fi
+}
 
-# Setup git author
-[ -f ~/.gitconfig ] || ! which git >/dev/null || git config --global --edit
+# enable color support of ls and also add handy aliases
+if [ -x /opt/bin/dircolors ]; then
+    test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
+    alias ls='ls --color=auto'
+    #alias dir='dir --color=auto'
+    #alias vdir='vdir --color=auto'
 
-# Add ~/.local/bin to $PATH
-export PATH="$HOME/.local/bin:$PATH"
+    alias grep='grep --color=auto'
+    alias fgrep='fgrep --color=auto'
+    alias egrep='egrep --color=auto'
+fi
 
-#############################
-## Awesome online services ##
-#############################
+# some more ls aliases
+alias ll='ls -alF'
+alias la='ls -A'
+alias l='ls -CF'
 
-# Send command output to qbin.io for quick & easy sharing (stored for 14 days)
-# Usage: echo "Hello World" | qbin
-#alias qbin="curl https://qbin.io -s -T -"
+# Alias definitions.
+# You may want to put all your additions into a separate file like
+# ~/.bash_aliases, instead of adding them here directly.
+# See /usr/share/doc/bash-doc/examples in the bash-doc package.
 
-# Upload bigger & binary files to transfer.sh (stored for 14 days)
-# transfer anything.tar.gz
-#transfer() { if [ $# -eq 0 ]; then echo -e "No arguments specified. Usage:\necho transfer /tmp/test.md\ncat /tmp/test.md | transfer test.md"; return 1; fi; tmpfile=$( mktemp -t transferXXX ); if tty -s; then basefile=$(basename "$1" | sed -e 's/[^a-zA-Z0-9._-]/-/g'); curl --progress-bar --upload-file "$1" "https://transfer.sh/$basefile" >> $tmpfile; else curl --progress-bar --upload-file "-" "https://transfer.sh/$1" >> $tmpfile ; fi; cat $tmpfile; rm -f $tmpfile; }
+if [ -f ~/.bash_aliases ]; then
+    . ~/.bash_aliases
+fi
 
-###########################
-## Other helpful aliases ##
-###########################
-
-# If ag is not installed, alias it to "grep -rn" (and generally force color for grep)
-alias grep="grep --color=always"
-which ag >/dev/null || alias ag="grep -rn"
-
-# Provide a yq command to use jq with YAML files
-alias yq="python3 -c 'import sys, yaml, json; json.dump(yaml.load(sys.stdin), sys.stdout, indent=4)' | jq"
-
-# A really simple password generator
-alias pw='bash -c '"'"'echo `tr -dc $([ $# -gt 1 ] && echo $2 || echo "A-Za-z0-9") < /dev/urandom | head -c $([ $# -gt 0 ] && echo $1 || echo 30)`'"'"' --'
-
-# View pressure stall information
-alias pressure="grep -n '[^ ]*=' /proc/pressure/*"
-
-##################
-## Custom stuff ##
-##################
+# enable programmable completion features (you don't need to enable
+# this, if it's already enabled in /etc/bash.bashrc and /etc/profile
+# sources /etc/bash.bashrc).
+if [ -f /opt/etc/bash_completion ] && ! shopt -oq posix; then
+    . /opt/etc/bash_completion
+fi
