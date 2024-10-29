@@ -1,14 +1,14 @@
 #!/bin/bash
 
-#APT Update/Install
+#DNF Update/Install
 sudo dnf update -y;
-sudo apt install git gh zsh tmux stow neovim -y;
+sudo dnf install git gh zsh tmux stow neovim -y;
 
 #Stow Files
 cd dotfiles;
 stow */;
 
-#ZSH als Shell
+#ZSdnffs Shell
 chsh -s $(which zsh);
 
 # Git Setup
