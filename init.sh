@@ -12,5 +12,5 @@ stow */;
 chsh -s $(which zsh);
 
 # Git Setup
-git --global user.email "nrossmann@gmx.de"
-git --global user.name " NRossmann"
+git config --global user.email "nrossmann@gmx.de"
+git config --global user.name " NRossmann"
