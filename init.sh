@@ -10,7 +10,3 @@ stow */;
 
 #ZSdnffs Shell
 chsh -s $(which zsh);
-
-# Git Setup
-git config --global user.email "nrossmann@gmx.de"
-git config --global user.name " NRossmann"
