@@ -242,7 +242,7 @@ else
   [[ "$OS" == "darwin" ]] && log "On macOS, you can: brew install neovim"
 fi
 
-#----- Stow dotfiles with override (simplified approach) --------------------#
+#----- Stow dotfiles WITHOUT override — pre-clean conflicting targets --------#
 shopt -s nullglob dotglob
 
 DOTDIR=""
@@ -257,78 +257,83 @@ fi
 if [[ ! -d "$DOTDIR" ]]; then
   log "No dotfiles directory found; skipping stow."
 else
-  # Fix for stow absolute/relative path bug
-  # Always work with relative paths from current directory
   log "Preparing to stow from: $DOTDIR"
-  
-  # Don't use realpath - keep it relative to avoid stow bug
   pushd "$DOTDIR" >/dev/null || exit 1
-  
-  # Unset STOW_DIR to avoid path confusion
   unset STOW_DIR
 
-  # Optional: Create safety backup before override
-  if [[ "$BACKUP_BEFORE_OVERRIDE" == "true" ]]; then
-    stamp="$(ts)-$$"  # Add PID for uniqueness
-    backup_created=false
-    
-    log "Creating safety backup before override..."
-    
-    for pkg in */ ; do
-      [[ "$pkg" == ".git/" ]] && continue
-      [[ ! -d "$pkg" ]] && continue
-      
-      # Find all target files that would be overwritten
-      while IFS= read -r -d '' src; do
-        rel="${src#$pkg/}"
-        target="${HOME}/${rel}"
-        
-        if [[ -e "$target" && ! -L "$target" ]]; then
-          backupdir="${BACKUP_ROOT}/${stamp}/$(dirname "$rel")"
-          mkdir -p "$backupdir"
-          
-          if ! $backup_created; then
-            log "Creating backup directory: ${BACKUP_ROOT}/${stamp}/"
-            backup_created=true
-          fi
-          
-          if cp -a "$target" "${backupdir}/" 2>/dev/null; then
-            log "Safety backup: $target -> ${backupdir}/$(basename "$rel")"
-          else
-            log "Warning: Failed to backup $target"
-          fi
-        fi
-      done < <(find "$pkg" -type f -print0 2>/dev/null || true)
-    done
-    
-    [[ "$backup_created" == "true" ]] && log "✓ Backup completed in ${BACKUP_ROOT}/${stamp}/"
-  fi
+  # Optional backup toggle (safe under set -u)
+  BACKUP_BEFORE_OVERRIDE="${BACKUP_BEFORE_OVERRIDE:-false}"
+  stamp=""
+  backup_created=false
 
-  # Stow with override - much simpler!
+  # Pre-clean: remove conflicting targets in $HOME that would block plain stow
+  preclean_conflicts() {
+    local pkg="$1"
+
+    # Remove files/symlinks that would collide
+    while IFS= read -r -d '' src; do
+      local rel="${src#$pkg/}"
+      local target="${HOME}/${rel}"
+
+      if [[ -e "$target" || -L "$target" ]]; then
+        # Backup (optional)
+        if [[ "$BACKUP_BEFORE_OVERRIDE" == "true" ]]; then
+          stamp="${stamp:-$(ts)-$$}"
+          local backupdir="${BACKUP_ROOT}/${stamp}/$(dirname "$rel")"
+          mkdir -p "$backupdir"
+
+          # Try to preserve content behind symlinks; fall back to copying the link target path
+          if [[ -L "$target" ]]; then
+            cp -a --remove-destination "$(readlink -f "$target" 2>/dev/null || echo "$target")" "$backupdir/" 2>/dev/null || true
+          else
+            cp -a "$target" "$backupdir/" 2>/dev/null || true
+          fi
+          backup_created=true
+          log "Backup: $target -> ${backupdir}/"
+        fi
+
+        rm -rf -- "$target"
+        log "Removed: $target"
+      fi
+    done < <(find "$pkg" -type f -o -type l -print0 2>/dev/null)
+
+    # Remove empty directories that would block symlink creation
+    while IFS= read -r -d '' d; do
+      local rel="${d#$pkg/}"
+      local target="${HOME}/${rel}"
+      if [[ -d "$target" && ! -L "$target" ]]; then
+        if [[ -z "$(ls -A "$target" 2>/dev/null)" ]]; then
+          rmdir -- "$target" && log "Removed empty dir: $target" || true
+        fi
+      fi
+    done < <(find "$pkg" -type d -print0 2>/dev/null)
+  }
+
+  # Stow without override
   stow_success=0
   stow_total=0
-  
+
   for pkg in */ ; do
     [[ "$pkg" == ".git/" ]] && continue
     [[ ! -d "$pkg" ]] && continue
 
     pkg_name="${pkg%/}"
     ((stow_total++))
-    
-    log "Stowing with override: $pkg_name"
-    
-    # --override='.*' overwrites all conflicting files
-    # -R = restow (removes old links and creates new ones)
-    # -v = verbose for better debugging
-    if stow --override='.*' -R -t "$HOME" -v "$pkg_name" 2>/dev/null; then
+
+    log "Pre-cleaning conflicts for: $pkg_name"
+    preclean_conflicts "$pkg_name"
+
+    log "Stowing: $pkg_name"
+    if stow -R -t "$HOME" -v "$pkg_name" 2>/dev/null; then
       log "✓ Successfully stowed $pkg_name"
       ((stow_success++))
     else
       log "❌ Failed to stow $pkg_name - trying with verbose output:"
-      stow --override='.*' -R -t "$HOME" -v "$pkg_name" || true
+      stow -R -t "$HOME" -v "$pkg_name" || true
     fi
   done
 
+  [[ "$backup_created" == "true" ]] && log "✓ Backup completed in ${BACKUP_ROOT}/${stamp}/"
   log "Stow summary: $stow_success/$stow_total packages successful"
   popd >/dev/null
 fi
