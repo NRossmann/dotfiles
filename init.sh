@@ -213,11 +213,9 @@ shopt -s nullglob dotglob
 realpath_f() {
   # portable-ish realpath fallback
   if have realpath; then realpath "$1"; else
-    # resolve symlinks best-effort
-    (cd "$(dirname "$1")" 2>/dev/null && pwd -P)/"$(basename "$1")"
+    printf '%s\n' "$(cd "$(dirname "$1")" 2>/dev/null && pwd -P)/$(basename "$1")"
   fi
 }
-
 preflight_backup_pkg() {
   local pkgdir="$1" rel src target backupdir stamp
   stamp="$(ts)"
@@ -241,7 +239,7 @@ preflight_backup_pkg() {
     mv "$target" "${backupdir}/" || {
       echo "Failed to move $target to backup. Check permissions."; continue;
     }
-  done < <(find "$pkgdir" -mindepth 1 -type f -o -type d -print0)
+  done < <(find "$pkgdir" -mindepth 1 \( -type f -o -type d \) -print0)
 }
 
 DOTDIR=""
