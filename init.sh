@@ -2,7 +2,7 @@
 # Universal setup script:
 # - updates system & installs base tools (git, gh/github-cli, zsh, tmux, stow, curl)
 # - installs Neovim from tarball (Linux x86_64)
-# - preflights and stows dotfiles packages safely (auto-backup conflicts)
+# - stows dotfiles packages with override (simplified approach)
 # - sets Zsh as the default shell
 
 set -u
@@ -12,18 +12,20 @@ NEOVIM_URL="https://github.com/neovim/neovim/releases/download/v0.11.4/nvim-linu
 NEOVIM_DEST_DIR="/usr/local/nvim"
 NEOVIM_BIN_SYMLINK="/usr/local/bin/nvim"
 BACKUP_ROOT="${HOME}/.dotfiles_backup"
+BACKUP_BEFORE_OVERRIDE=true  # Set to false to skip backup before override
 
 #----- Helpers ---------------------------------------------------------------#
 is_root() { [ "${EUID:-$(id -u)}" -eq 0 ]; }
 have()    { command -v "$1" >/dev/null 2>&1; }
 ts()      { date +"%Y%m%d-%H%M%S"; }
+log()     { echo "[$(date '+%H:%M:%S')] $*"; }
 
 SUDO=""
 if ! is_root; then
   if have sudo; then
     SUDO="sudo"
   else
-    echo "This script needs root privileges for package installs. Install 'sudo' or run as root."
+    log "This script needs root privileges for package installs. Install 'sudo' or run as root."
     exit 1
   fi
 fi
@@ -93,7 +95,7 @@ GH_CANDIDATES=(gh github-cli)
 if [[ "$OS" == "darwin" ]]; then
   PM="brew"
   if ! have brew; then
-    echo "Homebrew not found; installing..."
+    log "Homebrew not found; installing..."
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     if [[ -d /opt/homebrew/bin ]]; then export PATH="/opt/homebrew/bin:$PATH"; fi
   fi
@@ -116,70 +118,108 @@ else
 fi
 
 if [[ -z "${PM:-}" ]]; then
-  echo "Unsupported or undetected distribution. Please install manually: git, gh/github-cli, zsh, tmux, stow, curl."
+  log "Unsupported or undetected distribution. Please install manually: git, gh/github-cli, zsh, tmux, stow, curl."
   exit 1
 fi
-echo "Detected OS: ${OS}  | Using package manager: ${PM}"
+log "Detected OS: ${OS}  | Using package manager: ${PM}"
 
 #----- Update & Install base packages ---------------------------------------#
 UCMD="$(update_cmd "$PM")"
 if [[ -n "$UCMD" ]]; then
-  echo "Updating system..."
+  log "Updating system..."
   bash -c "$UCMD"
 fi
 
 ICMD="$(install_cmd_many "$PM" "${BASE_PKGS[@]}")"
 if [[ -n "$ICMD" ]]; then
-  echo "Installing base packages: ${BASE_PKGS[*]}"
+  log "Installing base packages: ${BASE_PKGS[*]}"
   bash -c "$ICMD" || true
 fi
 
 # Ensure downloader
 if ! have curl && ! have wget; then
-  echo "curl/wget not found after install attempt; trying to install curl..."
+  log "curl/wget not found after install attempt; trying to install curl..."
   GCMD="$(install_cmd_one "$PM" "curl")"
   [[ -n "$GCMD" ]] && bash -c "$GCMD" || true
 fi
 
-# Install GitHub CLI with fallbacks
+# Install GitHub CLI with fallbacks and verification
+GH_INSTALLED=false
 for ghpkg in "${GH_CANDIDATES[@]}"; do
-  echo "Attempting to install GitHub CLI package: $ghpkg"
+  log "Attempting to install GitHub CLI package: $ghpkg"
   GCMD="$(install_cmd_one "$PM" "$ghpkg")"
   if [[ -n "$GCMD" ]]; then
     if bash -c "$GCMD"; then
-      break
+      # Verify installation worked
+      if have gh; then
+        log "✓ GitHub CLI installed successfully: $(gh --version | head -n1)"
+        GH_INSTALLED=true
+        break
+      else
+        log "Package '$ghpkg' installed but 'gh' command not found"
+      fi
     else
-      echo "Package '$ghpkg' not available via $PM. Trying next candidate..."
+      log "Package '$ghpkg' not available via $PM. Trying next candidate..."
     fi
   fi
 done
 
+[[ "$GH_INSTALLED" == "false" ]] && log "Warning: GitHub CLI installation failed for all candidates"
+
 #----- Neovim: install from tarball (Linux x86_64 only) ---------------------#
+# portable-ish realpath fallback
+realpath_f() {
+  if have realpath; then realpath "$1" 2>/dev/null; else
+    printf '%s\n' "$(cd "$(dirname "$1")" 2>/dev/null && pwd -P)/$(basename "$1")" 2>/dev/null
+  fi
+}
+
 install_neovim_tarball() {
   local url="$1"
   local tmpdir; tmpdir="$(mktemp -d)"
-  echo "Installing Neovim from tarball: $url"
+  log "Installing Neovim from tarball: $url"
 
   local tarball="$tmpdir/nvim.tar.gz"
   if have curl; then
-    curl -L --fail -o "$tarball" "$url"
+    if ! curl -L --fail -o "$tarball" "$url"; then
+      log "Failed to download Neovim tarball"
+      rm -rf "$tmpdir"; return 1
+    fi
   elif have wget; then
-    wget -O "$tarball" "$url"
+    if ! wget -O "$tarball" "$url"; then
+      log "Failed to download Neovim tarball"
+      rm -rf "$tmpdir"; return 1
+    fi
   else
-    echo "Neither curl nor wget is available. Cannot download Neovim."
+    log "Neither curl nor wget is available. Cannot download Neovim."
     rm -rf "$tmpdir"; return 1
   fi
 
-  echo "Extracting..."
-  tar -C "$tmpdir" -xzf "$tarball"
+  # Verify downloaded tarball
+  if ! tar -tf "$tarball" >/dev/null 2>&1; then
+    log "Downloaded tarball appears corrupted"
+    rm -rf "$tmpdir"; return 1
+  fi
 
-  local topdir; topdir="$(tar tzf "$tarball" | head -1 | cut -d/ -f1)"
+  log "Extracting Neovim tarball..."
+  if ! tar -C "$tmpdir" -xzf "$tarball"; then
+    log "Failed to extract tarball"
+    rm -rf "$tmpdir"; return 1
+  fi
+
+  local topdir; topdir="$(tar -tzf "$tarball" | head -1 | cut -d/ -f1)"
   if [[ -z "$topdir" || ! -d "$tmpdir/$topdir" ]]; then
-    echo "Failed to detect extracted directory."
+    log "Failed to detect extracted directory."
     rm -rf "$tmpdir"; return 1
   fi
 
-  echo "Installing to $NEOVIM_DEST_DIR"
+  # Verify nvim binary exists
+  if [[ ! -f "$tmpdir/$topdir/bin/nvim" ]]; then
+    log "nvim binary not found in extracted archive"
+    rm -rf "$tmpdir"; return 1
+  fi
+
+  log "Installing Neovim to $NEOVIM_DEST_DIR"
   $SUDO rm -rf "$NEOVIM_DEST_DIR"
   $SUDO mkdir -p "$(dirname "$NEOVIM_DEST_DIR")"
   $SUDO mv "$tmpdir/$topdir" "$NEOVIM_DEST_DIR"
@@ -187,60 +227,23 @@ install_neovim_tarball() {
   $SUDO ln -sf "$NEOVIM_DEST_DIR/bin/nvim" "$NEOVIM_BIN_SYMLINK"
 
   if "$NEOVIM_BIN_SYMLINK" --version | head -n1 | grep -q "v0.11.4"; then
-    echo "Neovim v0.11.4 installed successfully at $NEOVIM_BIN_SYMLINK"
+    log "✓ Neovim v0.11.4 installed successfully at $NEOVIM_BIN_SYMLINK"
   else
-    echo "Neovim installed, but version check did not match v0.11.4."
+    log "Warning: Neovim installed, but version check did not match v0.11.4."
   fi
 
   rm -rf "$tmpdir"
 }
+
 if [[ "$(uname -s)" == "Linux" && "$(uname -m)" == "x86_64" ]]; then
-  install_neovim_tarball "$NEOVIM_URL" || echo "Neovim tarball install failed."
+  install_neovim_tarball "$NEOVIM_URL" || log "Neovim tarball install failed."
 else
-  echo "Skipping Neovim tarball (requires Linux x86_64)."
-  [[ "$OS" == "darwin" ]] && echo "On macOS, you can: brew install neovim"
+  log "Skipping Neovim tarball (requires Linux x86_64)."
+  [[ "$OS" == "darwin" ]] && log "On macOS, you can: brew install neovim"
 fi
 
-#----- Stow preflight: backup conflicts -------------------------------------#
-# We assume repository layout like:
-# dotfiles/
-#   zsh/.zshrc, .oh-my-zsh/...
-#   tmux/.config/...
-#   neovim/.config/...
-#
-# For every package directory under $DOTDIR/*, we compute the would-be targets in $HOME.
+#----- Stow dotfiles with override (simplified approach) --------------------#
 shopt -s nullglob dotglob
-realpath_f() {
-  # portable-ish realpath fallback
-  if have realpath; then realpath "$1"; else
-    printf '%s\n' "$(cd "$(dirname "$1")" 2>/dev/null && pwd -P)/$(basename "$1")"
-  fi
-}
-preflight_backup_pkg() {
-  local pkgdir="$1" rel src target backupdir stamp
-  stamp="$(ts)"
-  while IFS= read -r -d '' src; do
-    # Skip if directory and empty; still consider as potential conflict
-    rel="${src#$pkgdir/}"
-    target="${HOME}/${rel}"
-
-    # If target doesn't exist, no conflict.
-    [[ -e "$target" || -L "$target" ]] || continue
-
-    # If target is a symlink already (assume it's fine and points to our repo or user knows), skip.
-    if [[ -L "$target" ]]; then
-      continue
-    fi
-
-    # If target is a regular file/dir, back it up.
-    backupdir="${BACKUP_ROOT}/${stamp}/$(dirname "$rel")"
-    mkdir -p "$backupdir"
-    echo "Backing up existing: $target -> ${backupdir}/$(basename "$rel")"
-    mv "$target" "${backupdir}/" || {
-      echo "Failed to move $target to backup. Check permissions."; continue;
-    }
-  done < <(find "$pkgdir" -mindepth 1 \( -type f -o -type d \) -print0)
-}
 
 DOTDIR=""
 if [[ -d "./dotfiles" ]]; then
@@ -252,46 +255,123 @@ else
 fi
 
 if [[ ! -d "$DOTDIR" ]]; then
-  echo "No dotfiles directory found; skipping stow."
+  log "No dotfiles directory found; skipping stow."
 else
-  echo "Preparing to stow from: $DOTDIR"
+  DOTDIR="$(realpath_f "$DOTDIR" || echo "$DOTDIR")"
+  log "Preparing to stow from: $DOTDIR"
   pushd "$DOTDIR" >/dev/null || exit 1
 
+  # Set stow directory for better compatibility
+  export STOW_DIR="$DOTDIR"
+
+  # Optional: Create safety backup before override
+  if [[ "$BACKUP_BEFORE_OVERRIDE" == "true" ]]; then
+    stamp="$(ts)-$$"  # Add PID for uniqueness
+    backup_created=false
+    
+    log "Creating safety backup before override..."
+    
+    for pkg in */ ; do
+      [[ "$pkg" == ".git/" ]] && continue
+      [[ ! -d "$pkg" ]] && continue
+      
+      # Find all target files that would be overwritten
+      while IFS= read -r -d '' src; do
+        rel="${src#$pkg/}"
+        target="${HOME}/${rel}"
+        
+        if [[ -e "$target" && ! -L "$target" ]]; then
+          backupdir="${BACKUP_ROOT}/${stamp}/$(dirname "$rel")"
+          mkdir -p "$backupdir"
+          
+          if ! $backup_created; then
+            log "Creating backup directory: ${BACKUP_ROOT}/${stamp}/"
+            backup_created=true
+          fi
+          
+          if cp -a "$target" "${backupdir}/" 2>/dev/null; then
+            log "Safety backup: $target -> ${backupdir}/$(basename "$rel")"
+          else
+            log "Warning: Failed to backup $target"
+          fi
+        fi
+      done < <(find "$pkg" -type f -print0 2>/dev/null || true)
+    done
+    
+    [[ "$backup_created" == "true" ]] && log "✓ Backup completed in ${BACKUP_ROOT}/${stamp}/"
+  fi
+
+  # Stow with override - much simpler!
+  stow_success=0
+  stow_total=0
+  
   for pkg in */ ; do
-    # Skip git metadata and non-package dirs
     [[ "$pkg" == ".git/" ]] && continue
     [[ ! -d "$pkg" ]] && continue
 
-    # Preflight: backup conflicts for this package
-    echo "Preflighting package: ${pkg%/}"
-    preflight_backup_pkg "$pkg"
-
-    # Stow with explicit target = $HOME
-    echo "Stowing: ${pkg%/}"
-    stow -t "$HOME" -R "$pkg"
+    pkg_name="${pkg%/}"
+    ((stow_total++))
+    
+    log "Stowing with override: $pkg_name"
+    
+    # --override='.*' overwrites all conflicting files
+    # -R = restow (removes old links and creates new ones)
+    # -v = verbose for better debugging
+    if stow --override='.*' -R -t "$HOME" -v "$pkg_name" 2>/dev/null; then
+      log "✓ Successfully stowed $pkg_name"
+      ((stow_success++))
+    else
+      log "❌ Failed to stow $pkg_name - trying with verbose output:"
+      stow --override='.*' -R -t "$HOME" -v "$pkg_name" || true
+    fi
   done
 
+  log "Stow summary: $stow_success/$stow_total packages successful"
   popd >/dev/null
 fi
 
 #----- Set default shell to zsh ---------------------------------------------#
 get_shell_path() { getent passwd "$USER" 2>/dev/null | cut -d: -f7; }
+
 if have zsh; then
-  CURRENT_SHELL="$(get_shell_path || true)"
-  [[ -z "$CURRENT_SHELL" ]] && CURRENT_SHELL="${SHELL:-}"
+  CURRENT_SHELL="$(get_shell_path || echo "${SHELL:-}")"
   ZSH_BIN="$(command -v zsh)"
-  if [[ "$CURRENT_SHELL" != "$ZSH_BIN" ]]; then
-    echo "Changing default shell to: $ZSH_BIN"
-    if chsh -s "$ZSH_BIN"; then
-      echo "Default shell changed to zsh. Log out and back in to take effect."
+  
+  # Ensure zsh is in /etc/shells
+  if ! grep -q "^${ZSH_BIN}$" /etc/shells 2>/dev/null; then
+    log "Adding zsh to /etc/shells..."
+    if echo "$ZSH_BIN" | $SUDO tee -a /etc/shells >/dev/null; then
+      log "✓ Added zsh to /etc/shells"
     else
-      echo "chsh failed; try: chsh -s \"$ZSH_BIN\""
+      log "Warning: Could not add zsh to /etc/shells"
+    fi
+  fi
+  
+  if [[ "$CURRENT_SHELL" != "$ZSH_BIN" ]]; then
+    log "Changing default shell to: $ZSH_BIN"
+    if chsh -s "$ZSH_BIN"; then
+      log "✓ Default shell changed to zsh. Log out and back in to take effect."
+    else
+      log "❌ chsh failed; try manually: chsh -s \"$ZSH_BIN\""
     fi
   else
-    echo "zsh is already the default shell."
+    log "✓ zsh is already the default shell."
   fi
 else
-  echo "zsh not found after installation attempt; skipping shell change."
+  log "❌ zsh not found after installation attempt; skipping shell change."
 fi
 
-echo "✅ All done."
+log "✅ Setup completed successfully!"
+log ""
+log "Summary:"
+log "  - Base packages: git, zsh, tmux, stow, curl installed"
+log "  - GitHub CLI: $(have gh && echo "✓ installed" || echo "❌ failed")"
+log "  - Neovim: $(have nvim && echo "✓ installed ($(nvim --version | head -n1))" || echo "❌ failed/skipped")"
+log "  - Dotfiles: $(cd "$DOTDIR" 2>/dev/null && echo "✓ stowed from $DOTDIR" || echo "❌ no dotfiles found")"
+log "  - Shell: $(have zsh && [[ "$(get_shell_path || echo "${SHELL:-}")" == "$(command -v zsh)" ]] && echo "✓ zsh set as default" || echo "❌ not changed")"
+[[ "$BACKUP_BEFORE_OVERRIDE" == "true" && -d "${BACKUP_ROOT}" ]] && log "  - Backups: available in ${BACKUP_ROOT}/"
+log ""
+log "Next steps:"
+log "  - Log out and back in to activate zsh"
+log "  - Run 'gh auth login' to authenticate GitHub CLI"
+log "  - Configure Neovim with your preferred settings"
