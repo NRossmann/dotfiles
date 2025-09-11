@@ -12,7 +12,6 @@ NEOVIM_URL="https://github.com/neovim/neovim/releases/download/v0.11.4/nvim-linu
 NEOVIM_DEST_DIR="/usr/local/nvim"
 NEOVIM_BIN_SYMLINK="/usr/local/bin/nvim"
 BACKUP_ROOT="${HOME}/.dotfiles_backup"
-BACKUP_BEFORE_OVERRIDE=true  # Set to false to skip backup before override
 
 #----- Helpers ---------------------------------------------------------------#
 is_root() { [ "${EUID:-$(id -u)}" -eq 0 ]; }
@@ -257,12 +256,15 @@ fi
 if [[ ! -d "$DOTDIR" ]]; then
   log "No dotfiles directory found; skipping stow."
 else
-  DOTDIR="$(realpath_f "$DOTDIR" || echo "$DOTDIR")"
+  # Fix for stow absolute/relative path bug
+  # Always work with relative paths from current directory
   log "Preparing to stow from: $DOTDIR"
+  
+  # Don't use realpath - keep it relative to avoid stow bug
   pushd "$DOTDIR" >/dev/null || exit 1
-
-  # Set stow directory for better compatibility
-  export STOW_DIR="$DOTDIR"
+  
+  # Unset STOW_DIR to avoid path confusion
+  unset STOW_DIR
 
   # Optional: Create safety backup before override
   if [[ "$BACKUP_BEFORE_OVERRIDE" == "true" ]]; then
