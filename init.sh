@@ -12,6 +12,7 @@ NEOVIM_URL="https://github.com/neovim/neovim/releases/download/v0.11.4/nvim-linu
 NEOVIM_DEST_DIR="/usr/local/nvim"
 NEOVIM_BIN_SYMLINK="/usr/local/bin/nvim"
 BACKUP_ROOT="${HOME}/.dotfiles_backup"
+BACKUP_BEFORE_OVERRIDE="${BACKUP_BEFORE_OVERRIDE:-false}"
 
 #----- Helpers ---------------------------------------------------------------#
 is_root() { [ "${EUID:-$(id -u)}" -eq 0 ]; }
