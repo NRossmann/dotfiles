@@ -242,114 +242,95 @@ else
   [[ "$OS" == "darwin" ]] && log "On macOS, you can: brew install neovim"
 fi
 
-#----- Stow dotfiles WITHOUT override — pre-clean conflicting targets --------#
-shopt -s nullglob dotglob
+#----- Stow dotfiles WITHOUT override — absolute -d and no folding ---------#
+# (Assumes you already set DOTDIR and BACKUP_BEFORE_OVERRIDE default earlier)
 
-DOTDIR=""
-if [[ -d "./dotfiles" ]]; then
-  DOTDIR="./dotfiles"
-elif [[ -d "$HOME/dotfiles" ]]; then
-  DOTDIR="$HOME/dotfiles"
-else
-  DOTDIR="$(pwd)"
-fi
+realpath_f() {
+  if command -v realpath >/dev/null 2>&1; then realpath "$1" 2>/dev/null; else
+    printf '%s\n' "$(cd "$(dirname "$1")" 2>/dev/null && pwd -P)/$(basename "$1")" 2>/dev/null
+  fi
+}
 
-if [[ ! -d "$DOTDIR" ]]; then
-  log "No dotfiles directory found; skipping stow."
-else
-  log "Preparing to stow from: $DOTDIR"
-  unset STOW_DIR
+BACKUP_BEFORE_OVERRIDE="${BACKUP_BEFORE_OVERRIDE:-false}"
+BACKUP_ROOT="${BACKUP_ROOT:-"$HOME/.dotfiles_backup"}"
+STOWDIR_ABS="$(realpath_f "$DOTDIR")"
+unset STOW_DIR
 
-  # Use absolute path for stow dir to avoid abs/rel mismatch
-  STOWDIR_ABS="$(realpath_f "$DOTDIR")"
+ts() { date +"%Y%m%d-%H%M%S"; }
 
-  # Optional backup toggle (safe under set -u)
-  BACKUP_BEFORE_OVERRIDE="${BACKUP_BEFORE_OVERRIDE:-false}"
-  stamp=""
-  backup_created=false
+backup_if_enabled() {
+  local rel="$1" target="${HOME}/${rel}"
+  [[ "$BACKUP_BEFORE_OVERRIDE" != "true" ]] && return 0
+  local stamp="${STAMP:-}"; [[ -z "$stamp" ]] && STAMP="$(ts)-$$" && stamp="$STAMP"
+  local bdir="${BACKUP_ROOT}/${stamp}/$(dirname "$rel")"
+  mkdir -p "$bdir"
+  cp -a "$target" "$bdir/" 2>/dev/null || true
+  log "Backup: $target -> $bdir/"
+}
 
-  preclean_conflicts() {
-    local pkg_name="$1"            # e.g. "neovim"
-    local pkg_prefix="${pkg_name}/" # ensure trailing slash
+# Pre-clean a package: remove files/dirs in $HOME that would collide
+preclean_pkg() {
+  local pkg_name="$1"
+  local pkg_prefix="${pkg_name}/"
 
-    # Files/symlinks that would collide
-    while IFS= read -r -d '' src; do
-      # src like "neovim/.config/nvim/README.md"
-      local rel="${src#"$pkg_prefix"}"            # ".config/nvim/README.md"
-      local target="${HOME}/${rel}"               # "~/.config/nvim/README.md"
-
-      if [[ -e "$target" || -L "$target" ]]; then
-        if [[ "$BACKUP_BEFORE_OVERRIDE" == "true" ]]; then
-          stamp="${stamp:-$(ts)-$$}"
-          local backupdir="${BACKUP_ROOT}/${stamp}/$(dirname "$rel")"
-          mkdir -p "$backupdir"
-          # Try to copy contents (resolving symlinks if possible)
-          if [[ -L "$target" ]]; then
-            cp -a --remove-destination "$(readlink -f "$target" 2>/dev/null || echo "$target")" "$backupdir/" 2>/dev/null || true
-          else
-            cp -a "$target" "$backupdir/" 2>/dev/null || true
-          fi
-          backup_created=true
-          log "Backup: $target -> ${backupdir}/"
-        fi
-
-        rm -rf -- "$target"
-        log "Removed: $target"
-      fi
-    done < <(find "$pkg_name" -type f -o -type l -print0 2>/dev/null)
-
-    # Remove directories that would block link creation
-    while IFS= read -r -d '' d; do
-      local rel="${d#"$pkg_prefix"}"
-      local target="${HOME}/${rel}"
-      if [[ -d "$target" && ! -L "$target" ]]; then
-        # If empty, rmdir; if not, back up (optional) then remove
-        if [[ -z "$(ls -A "$target" 2>/dev/null)" ]]; then
-          rmdir -- "$target" && log "Removed empty dir: $target" || true
-        else
-          if [[ "$BACKUP_BEFORE_OVERRIDE" == "true" ]]; then
-            stamp="${stamp:-$(ts)-$$}"
-            local backupdir="${BACKUP_ROOT}/${stamp}/$(dirname "$rel")"
-            mkdir -p "$backupdir"
-            cp -a "$target" "$backupdir/" 2>/dev/null || true
-            backup_created=true
-            log "Backup dir: $target -> ${backupdir}/"
-          fi
-          rm -rf -- "$target"
-          log "Removed non-empty dir: $target"
-        fi
-      fi
-    done < <(find "$pkg_name" -type d -print0 2>/dev/null)
-  }
-
-  stow_success=0
-  stow_total=0
-
-  # Work directly from absolute stow dir; no pushd
-  for pkg in "$STOWDIR_ABS"/*/ ; do
-    [[ "$pkg" == */.git/ ]] && continue
-    [[ ! -d "$pkg" ]] && continue
-
-    pkg_name="$(basename "$pkg")"
-    ((stow_total++))
-
-    log "Pre-cleaning conflicts for: $pkg_name"
-    ( cd "$STOWDIR_ABS" && preclean_conflicts "$pkg_name" )
-
-    log "Stowing: $pkg_name"
-    if stow -d "$STOWDIR_ABS" -R -t "$HOME" -v "$pkg_name" 2>/dev/null; then
-      log "✓ Successfully stowed $pkg_name"
-      ((stow_success++))
-    else
-      log "❌ Failed to stow $pkg_name - trying with verbose output:"
-      stow -d "$STOWDIR_ABS" -R -t "$HOME" -v "$pkg_name" || true
+  # files & symlinks
+  while IFS= read -r -d '' src; do
+    local rel="${src#"$pkg_prefix"}"
+    local target="${HOME}/${rel}"
+    if [[ -e "$target" || -L "$target" ]]; then
+      backup_if_enabled "$rel"
+      rm -rf -- "$target"
+      log "Removed: $target"
     fi
-  done
+  done < <(cd "$STOWDIR_ABS" && find "$pkg_name" -type f -o -type l -print0 2>/dev/null)
 
-  [[ "$backup_created" == "true" ]] && log "✓ Backup completed in ${BACKUP_ROOT}/${stamp}/"
-  log "Stow summary: $stow_success/$stow_total packages successful"
+  # dirs that could block link creation
+  while IFS= read -r -d '' d; do
+    local rel="${d#"$pkg_prefix"}"
+    local target="${HOME}/${rel}"
+    if [[ -d "$target" && ! -L "$target" ]]; then
+      # backup whole dir if present and non-empty
+      if [[ -n "$(ls -A "$target" 2>/dev/null)" ]]; then
+        backup_if_enabled "$rel"
+      fi
+      rm -rf -- "$target"
+      log "Removed dir: $target"
+    fi
+  done < <(cd "$STOWDIR_ABS" && find "$pkg_name" -type d -print0 2>/dev/null)
+}
+
+# Special-case zsh: .zshrc often exists—clean it explicitly
+if [[ -e "$HOME/.zshrc" || -L "$HOME/.zshrc" ]]; then
+  backup_if_enabled ".zshrc"
+  rm -rf -- "$HOME/.zshrc"
+  log "Removed: $HOME/.zshrc"
 fi
 
+stow_success=0
+stow_total=0
+
+for pkg in "$STOWDIR_ABS"/*/ ; do
+  [[ "$pkg" == */.git/ ]] && continue
+  [[ ! -d "$pkg" ]] && continue
+
+  pkg_name="$(basename "$pkg")"
+  ((stow_total++))
+
+  log "Pre-cleaning conflicts for: $pkg_name"
+  preclean_pkg "$pkg_name"
+
+  log "Stowing (no folding): $pkg_name"
+  if stow --no-folding -d "$STOWDIR_ABS" -R -t "$HOME" -v "$pkg_name" 2>/dev/null; then
+    log "✓ Successfully stowed $pkg_name"
+    ((stow_success++))
+  else
+    log "❌ Failed to stow $pkg_name - trying with verbose output:"
+    stow --no-folding -d "$STOWDIR_ABS" -R -t "$HOME" -v "$pkg_name" || true
+  fi
+done
+
+[[ -n "${STAMP:-}" ]] && log "✓ Backup completed in ${BACKUP_ROOT}/${STAMP}/"
+log "Stow summary: $stow_success/$stow_total packages successful"
 #----- Set default shell to zsh ---------------------------------------------#
 get_shell_path() { getent passwd "$USER" 2>/dev/null | cut -d: -f7; }
 
