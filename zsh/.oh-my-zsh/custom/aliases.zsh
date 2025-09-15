@@ -15,6 +15,7 @@ alias tmuxconfig="nvim ~/.config/tmux/tmux.conf"
 
 alias nvimconfig="nvim ~/.config/nvim/init.lua"
 
+alias sudoedit="sudo -e"
 ###############################################################################
 # End of file
 ###############################################################################

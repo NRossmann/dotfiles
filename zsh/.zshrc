@@ -98,3 +98,7 @@ source $ZSH/oh-my-zsh.sh
 # - $ZSH_CUSTOM/aliases.zsh
 # - $ZSH_CUSTOM/macos.zsh
 # For a full list of active aliases, run `alias`.
+
+# Set Editor for sudo edit
+export EDITOR=nvim
+export VISUAL=nvim
