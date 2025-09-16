@@ -10,6 +10,7 @@
 alias zshconfig="nvim ~/.zshrc"
 alias zshreload="source ~/.zshrc"
 alias zshaliasconfig="nvim ~/.config/zsh/aliases.zsh"
+alias cd-dotfiles="cd ~/dotfiles"
 
 alias tmuxconfig="nvim ~/.config/tmux/tmux.conf"
 
