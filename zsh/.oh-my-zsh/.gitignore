@@ -10,3 +10,6 @@ log/
 
 # zcompile cached files
 *.zwc
+
+# Path File for GO compiler
+custom/path.zsh
