@@ -662,6 +662,41 @@ require('lazy').setup({
           --
           -- When you move your cursor, the highlights will be cleared (the second autocommand).
           local client = vim.lsp.get_client_by_id(event.data.client_id)
+          -- --- Force LTeX to use de-DE on attach ---
+          if client and client.name == 'ltex' then
+            client.config.settings = client.config.settings or {}
+            client.config.settings.ltex = client.config.settings.ltex or {}
+
+            -- Sprache & Muttersprachler setzen
+            client.config.settings.ltex.language = 'de-DE'
+            local ar = client.config.settings.ltex.additionalRules or {}
+            ar.motherTongue = ar.motherTongue or 'de-DE'
+            client.config.settings.ltex.additionalRules = ar
+
+            -- Optional: alle Deutsch-Varianten für disabledRules absichern
+            local dr = client.config.settings.ltex.disabledRules or {}
+            local function add(lang, rule)
+              dr[lang] = dr[lang] or {}
+              if not vim.tbl_contains(dr[lang], rule) then
+                table.insert(dr[lang], rule)
+              end
+            end
+            add('de', 'DE_CASE')
+            add('de-DE', 'DE_CASE')
+            add('de-AT', 'DE_CASE')
+            add('de-CH', 'DE_CASE')
+            add('de-DE-x-simple-language', 'DE_CASE')
+            client.config.settings.ltex.disabledRules = dr
+
+            -- Änderung an den laufenden Server senden
+            client:notify('workspace/didChangeConfiguration', { settings = client.config.settings })
+
+            -- kurze Rückmeldung
+            vim.defer_fn(function()
+              vim.notify('[LTeX] language=' .. tostring(client.config.settings.ltex.language), vim.log.levels.INFO)
+            end, 50)
+          end
+
           if client and client_supports_method(client, vim.lsp.protocol.Methods.textDocument_documentHighlight, event.buf) then
             local highlight_augroup = vim.api.nvim_create_augroup('kickstart-lsp-highlight', { clear = false })
             vim.api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI' }, {
@@ -797,7 +832,7 @@ require('lazy').setup({
           settings = {
             ltex = {
               -- Let LTeX auto-detect EN/DE; mother tongue helps better suggestions
-              language = 'auto',
+              language = 'de-DE',
               additionalRules = {
                 motherTongue = 'de-DE',
               },
@@ -821,9 +856,13 @@ require('lazy').setup({
               },
               -- Performance: only check reasonably sized files
               disabledRules = {
-                -- Example: disable picky rules if too noisy
-                -- ['en-US'] = { 'UPPERCASE_SENTENCE_START' },
-                ['de'] = { 'CASE_ONLY_UPPERCASE' }, -- nur Satzanfang großschreiben
+                ['de'] = { 'DE_CASE' },
+                ['de-DE'] = { 'DE_CASE' },
+                ['de-AT'] = { 'DE_CASE' },
+                ['de-CH'] = { 'DE_CASE' },
+                ['de-DE-x-simple-language'] = { 'DE_CASE' }, -- wichtig!
+                -- falls du weiterhin EN-Dateien hast:
+                ['en-US'] = { 'UPPERCASE_SENTENCE_START' },
               },
             },
           },
