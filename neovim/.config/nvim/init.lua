@@ -250,14 +250,30 @@ require('lazy').setup({
   {
     'NMAC427/guess-indent.nvim',
     opts = {
-      auto_cmd = true, -- automatically detect on BufRead/BufNewFile
+      auto_cmd = true,
       override_editorconfig = false,
-      default_type = 'space', -- use spaces if guessing fails
-      default_shiftwidth = 2, -- fallback shiftwidth
-      default_tabstop = 2, -- fallback tabstop
+      default_type = 'space', -- global fallback = spaces
+      default_shiftwidth = 2,
+      default_tabstop = 2,
     },
-  },
+    config = function(_, opts)
+      local guess_indent = require 'guess-indent'
+      guess_indent.setup(opts)
 
+      -- For Markdown: fallback = tabs if detection fails
+      vim.api.nvim_create_autocmd('FileType', {
+        pattern = 'markdown',
+        callback = function()
+          -- temporarily override defaults
+          guess_indent.setup {
+            default_type = 'tab',
+            default_shiftwidth = 4,
+            default_tabstop = 4,
+          }
+        end,
+      })
+    end,
+  },
   -- NOTE: Plugins can also be added by using a table,
   -- with the first argument being the link and the following
   -- keys can be used to configure plugin behavior/loading/etc.
