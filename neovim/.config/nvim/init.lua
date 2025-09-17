@@ -754,7 +754,80 @@ require('lazy').setup({
         -- But for many setups, the LSP (`ts_ls`) will work just fine
         -- ts_ls = {},
         --
-
+        -- Marksman LSP for Markdown
+        marksman = {},
+        -- Grammar & spelling for DE/EN in prose + code comments
+        ltex = {
+          -- Tell ltex-ls which filetypes to inspect (includes many code langs for comments/strings)
+          filetypes = {
+            'markdown',
+            'text',
+            'plaintex',
+            'tex',
+            'bib',
+            'gitcommit',
+            'org',
+            'rst',
+            -- code files: ltex will check comments/strings
+            'lua',
+            'python',
+            'javascript',
+            'typescript',
+            'javascriptreact',
+            'typescriptreact',
+            'html',
+            'css',
+            'scss',
+            'json',
+            'yaml',
+            'toml',
+            'c',
+            'cpp',
+            'rust',
+            'go',
+            'java',
+            'kotlin',
+            'swift',
+            'php',
+            'cs',
+            'sh',
+            'bash',
+            'zsh',
+          },
+          settings = {
+            ltex = {
+              -- Let LTeX auto-detect EN/DE; mother tongue helps better suggestions
+              language = 'auto',
+              additionalRules = {
+                motherTongue = 'de-DE',
+              },
+              -- Project/user dictionaries (good for names, product terms, etc.)
+              -- Create these files if they don't exist; one word per line
+              dictionary = {
+                ['en-US'] = {
+                  -- inline entries
+                  'Staatsoper',
+                  'Riedel',
+                  'Inspizientenanlage',
+                },
+                ['de-DE'] = {
+                  'Kündigungsschutz',
+                  'Arbeitszeitbetrug',
+                },
+              },
+              -- Hide false positives (optional)
+              hiddenFalsePositives = {
+                -- { rule = 'MORFOLOGIK_RULE_DE', sentence = '…' },
+              },
+              -- Performance: only check reasonably sized files
+              disabledRules = {
+                -- Example: disable picky rules if too noisy
+                -- ['en-US'] = { 'UPPERCASE_SENTENCE_START' },
+                ['de'] = { 'CASE_ONLY_UPPERCASE' }, -- nur Satzanfang großschreiben
+              },
+            },
+          },
+        },
         lua_ls = {
           -- cmd = { ... },
           -- filetypes = { ... },
@@ -770,6 +843,38 @@ require('lazy').setup({
           },
         },
       }
+      -- Helper to set LTeX language for the current buffer and notify the server
+      local function set_ltex_lang(lang)
+        local bufnr = vim.api.nvim_get_current_buf()
+        for _, client in pairs(vim.lsp.get_clients { bufnr = bufnr }) do
+          if client.name == 'ltex' then
+            client.config.settings = client.config.settings or {}
+            client.config.settings.ltex = client.config.settings.ltex or {}
+            client.config.settings.ltex.language = lang
+            client.notify('workspace/didChangeConfiguration', { settings = client.config.settings })
+            vim.notify('LTeX language set to ' .. lang, vim.log.levels.INFO)
+            return
+          end
+        end
+        vim.notify('LTeX is not attached to this buffer', vim.log.levels.WARN)
+      end
+      -- Create easy commands
+      vim.api.nvim_create_user_command('LTeXLang', function(opts)
+        set_ltex_lang(opts.args)
+      end, {
+        nargs = 1,
+        complete = function()
+          return { 'auto', 'en-US', 'en-GB', 'de-DE', 'de-AT', 'de-CH' }
+        end,
+      })
+
+      -- Convenience shorthands (optional)
+      vim.api.nvim_create_user_command('LTeXDe', function()
+        set_ltex_lang 'de-DE'
+      end, {})
+      vim.api.nvim_create_user_command('LTeXEn', function()
+        set_ltex_lang 'en-US'
+      end, {})
 
       -- Ensure the servers and tools above are installed
       --
