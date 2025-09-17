@@ -252,24 +252,70 @@ require('lazy').setup({
     opts = {
       auto_cmd = true,
       override_editorconfig = false,
-      default_type = 'space', -- global fallback = spaces
-      default_shiftwidth = 2,
-      default_tabstop = 2,
+      -- Use detected values when possible:
+      on_space_options = {
+        expandtab = true,
+        tabstop = 'detected',
+        softtabstop = 'detected',
+        shiftwidth = 'detected',
+      },
+      on_tab_options = {
+        expandtab = false,
+        -- (tab widths don’t need to be set here; detection will set them)
+      },
     },
     config = function(_, opts)
       local guess_indent = require 'guess-indent'
       guess_indent.setup(opts)
 
-      -- For Markdown: fallback = tabs if detection fails
-      vim.api.nvim_create_autocmd('FileType', {
-        pattern = 'markdown',
-        callback = function()
-          -- temporarily override defaults
-          guess_indent.setup {
-            default_type = 'tab',
-            default_shiftwidth = 4,
-            default_tabstop = 4,
-          }
+      -- tiny helper: check first N lines for leading tabs/spaces
+      local function no_indentation_found(bufnr, max_lines)
+        bufnr = bufnr or 0
+        max_lines = max_lines or 500
+        local last = math.min(vim.api.nvim_buf_line_count(bufnr), max_lines)
+        local has_tabs, has_spaces = false, false
+        for _, line in ipairs(vim.api.nvim_buf_get_lines(bufnr, 0, last, false)) do
+          local ws = line:match '^%s+'
+          if ws then
+            if ws:find '\t' then
+              has_tabs = true
+            end
+            if ws:find ' ' then
+              has_spaces = true
+            end
+            if has_tabs or has_spaces then
+              break
+            end
+          end
+        end
+        return (not has_tabs) and not has_spaces
+      end
+
+      -- Apply “fallbacks only if detection failed”
+      local function apply_fallback_if_needed(ft)
+        -- 1) try detection
+        vim.cmd 'silent! GuessIndent'
+        -- 2) if nothing detectable, set your defaults
+        if no_indentation_found(0) then
+          if ft == 'markdown' then
+            vim.bo.expandtab = false
+            vim.bo.tabstop = 4
+            vim.bo.shiftwidth = 4
+            vim.bo.softtabstop = 0
+          else
+            vim.bo.expandtab = true
+            vim.bo.tabstop = 2
+            vim.bo.shiftwidth = 2
+            vim.bo.softtabstop = 2
+          end
+        end
+      end
+
+      -- Run on open/new buffers
+      vim.api.nvim_create_autocmd({ 'BufReadPost', 'BufNewFile' }, {
+        callback = function(args)
+          local ft = vim.bo[args.buf].filetype
+          apply_fallback_if_needed(ft)
         end,
       })
     end,
@@ -925,42 +971,36 @@ require('lazy').setup({
 
   -- Highlight todo, notes, etc in comments
   { 'folke/todo-comments.nvim', event = 'VimEnter', dependencies = { 'nvim-lua/plenary.nvim' }, opts = { signs = false } },
-
   { -- Collection of various small independent plugins/modules
     'echasnovski/mini.nvim',
     config = function()
-      -- Better Around/Inside textobjects
-      --
-      -- Examples:
-      --  - va)  - [V]isually select [A]round [)]paren
-      --  - yinq - [Y]ank [I]nside [N]ext [Q]uote
-      --  - ci'  - [C]hange [I]nside [']quote
+      -- Mini modules
       require('mini.ai').setup { n_lines = 500 }
-
-      -- Add/delete/replace surroundings (brackets, quotes, etc.)
-      --
-      -- - saiw) - [S]urround [A]dd [I]nner [W]ord [)]Paren
-      -- - sd'   - [S]urround [D]elete [']quotes
-      -- - sr)'  - [S]urround [R]eplace [)] [']
       require('mini.surround').setup()
 
-      -- Simple and easy statusline.
-      --  You could remove this setup call if you don't like it,
-      --  and try some other statusline plugin
+      -- Simple and easy statusline
       local statusline = require 'mini.statusline'
-      -- set use_icons to true if you have a Nerd Font
       statusline.setup { use_icons = vim.g.have_nerd_font }
 
-      -- You can configure sections in the statusline by overriding their
-      -- default behavior. For example, here we set the section for
-      -- cursor location to LINE:COLUMN
-      ---@diagnostic disable-next-line: duplicate-set-field
+      -- Keep your custom location (LINE:COLUMN)
       statusline.section_location = function()
         return '%2l:%-2v'
       end
 
-      -- ... and there is more!
-      --  Check out: https://github.com/echasnovski/mini.nvim
+      -- ✨ Add indent info to the statusline (expandtab/tabstop/shiftwidth[/softtabstop])
+      do
+        local old_fileinfo = statusline.section_fileinfo
+        statusline.section_fileinfo = function(...)
+          local base = old_fileinfo(...)
+          local et = vim.bo.expandtab and '[SPC]' or '[TAB]'
+          local ts = vim.bo.tabstop
+          -- When shiftwidth is 0, Vim uses tabstop for indent width
+          local sw = (vim.bo.shiftwidth == 0) and ts or vim.bo.shiftwidth
+          -- When softtabstop <= 0, it effectively follows tabstop
+          local sts = (vim.bo.softtabstop <= 0) and ts or vim.bo.softtabstop
+          return string.format('%s %s ts=%d sw=%d sts=%d', base, et, ts, sw, sts)
+        end
+      end
     end,
   },
   { -- Highlight, edit, and navigate code
