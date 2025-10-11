@@ -27,7 +27,7 @@ if command -v tmux &> /dev/null; then
     tmux attach || tmux new-session
   fi
 fi
-
+eval "$(zoxide init zsh)"
 # Aliases and customizations:
 # You are encouraged to place custom aliases and shell functions in $ZSH_CUSTOM/aliases.zsh or other files in $ZSH_CUSTOM
 
