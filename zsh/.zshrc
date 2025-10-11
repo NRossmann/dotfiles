@@ -1,45 +1,23 @@
-# Oh My Zsh Configuration
+# Set the directory we want to store zinit and plugins
+ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
 
-# Path to your Oh My Zsh installation
-export ZSH="$HOME/.oh-my-zsh"
-
-# Set theme for Oh My Zsh
-ZSH_THEME="simple"
-
-# Set custom folder for Oh My Zsh (for plugins, aliases, etc.)
-ZSH_CUSTOM="$HOME/.config/zsh"
-
-# Load plugins (add wisely, too many slow down startup)
-plugins=(git gh)
-
-# Source Oh My Zsh
-source $ZSH/oh-my-zsh.sh
-
-# User Configuration
-
-# Set default editor (used for commands like visudo, git commit, etc.)
-export EDITOR=nvim
-export VISUAL=nvim
-
-# Start tmux session on shell startup unless already inside tmux
-if command -v tmux &> /dev/null; then
-  if [ -z "$TMUX" ]; then
-    tmux attach || tmux new-session
-  fi
+# Download Zinit, if it's not there yet
+if [ ! -d "$ZINIT_HOME" ]; then
+   mkdir -p "$(dirname $ZINIT_HOME)"
+   git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
 fi
-eval "$(zoxide init zsh)"
-# Aliases and customizations:
-# You are encouraged to place custom aliases and shell functions in $ZSH_CUSTOM/aliases.zsh or other files in $ZSH_CUSTOM
 
-# For a full list of active aliases, run `alias`
+# Source/Load zinit
+source "${ZINIT_HOME}/zinit.zsh"
 
-# Useful tips:
-# - To update Oh My Zsh, run: omz update
-# - To see available plugins: ls $ZSH/plugins
-# - To see available themes: ls $ZSH/themes
+#Source aliases
+source ~/.config/zsh/aliases.zsh
 
-# Uncomment and adjust the following lines as needed:
-# export PATH="$HOME/bin:$HOME/.local/bin:/usr/local/bin:$PATH"   # Add custom paths
-# export LANG=en_US.UTF-8                                         # Set language environment
-# export MANPATH="/usr/local/man:$MANPATH"                        # Set manual path
-# export ARCHFLAGS="-arch $(uname -m)"                            # Set compilation flags
+# Load starship theme
+# line 1: `starship` binary as command, from github release
+# line 2: starship setup at clone(create init.zsh, completion)
+# line 3: pull behavior same as clone, source init.zsh
+zinit ice as"command" from"gh-r" \
+          atclone"./starship init zsh > init.zsh; ./starship completions zsh > _starship" \
+          atpull"%atclone" src"init.zsh"
+zinit light starship/starship
