@@ -462,6 +462,8 @@ require('lazy').setup({
             },
           },
         },
+        gopls = {},
+        pyright = {},
       }
 
       -- Helper commands to switch LTeX language on the fly
