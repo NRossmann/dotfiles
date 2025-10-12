@@ -29,6 +29,9 @@ zinit snippet OMZP::git
 zinit snippet OMZP::sudo
 zinit snippet OMZP::command-not-found
 
+# --- History substring search (↑/↓ durchsuchen nur passenden Verlauf) ---
+zinit light zsh-users/zsh-history-substring-search
+
 # Load completions
 autoload -Uz compinit && compinit
 
