@@ -72,10 +72,14 @@ alias c='clear'
 eval "$(fzf --zsh)"
 eval "$(zoxide init --cmd cd zsh)"
 
-#Auto Start Tmux
+#Set standard Editor
+export EDITOR="nvim"
+export VISUAL="nvim"
 
 # Start tmux session on shell startup unless already inside tmux
 if command -v tmux &> /dev/null; then
   if [ -z "$TMUX" ]; then
     tmux attach || tmux new-session
   fi
+fi
+
