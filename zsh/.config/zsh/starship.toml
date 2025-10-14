@@ -51,7 +51,7 @@ disabled = false
 # ===============================
 
 [git_branch]
-symbol = "🌱 "
+symbol = "Branch "
 format = "on [$symbol$branch]($style) "
 style = "bold green"
 
@@ -65,7 +65,7 @@ format = "([$all_status$ahead_behind]($style) )"
 style = "bold cyan"
 stashed = "📦 "
 modified = "📝 "
-staged = "✔ "
+staged = "🟩"
 deleted = "🗑 "
 untracked = "✨ "
 renamed = "🔀 "
