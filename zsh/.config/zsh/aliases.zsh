@@ -18,6 +18,7 @@ alias nvimconfig="nvim ~/.config/nvim/init.lua"
 
 alias sudoedit="sudo -e"
 alias la="ls -la"
+alias venvactivate="source venv/bin/activate"
 ###############################################################################
 # End of file
 ###############################################################################
