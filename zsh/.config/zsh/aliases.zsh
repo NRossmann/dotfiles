@@ -1,24 +1,34 @@
 ###############################################################################
 # Aliases & Functions (Oh My Zsh custom)
-# File: ~/.oh-my-zsh/custom/aliases.zsh
+# File: ~/.config/zsh/aliases.zsh
 # Purpose: Aliases for ZSH
 ###############################################################################
 
 # -----------------------------------------------------------------------------
-# Editor & dotfiles
+# Navigation & Basics
 # -----------------------------------------------------------------------------
-alias zshconfig="nvim ~/.zshrc"
-alias zshreload="source ~/.zshrc"
-alias zshaliasconfig="nvim ~/.config/zsh/aliases.zsh"
+alias ..='cd ..'
 alias cd-dotfiles="cd ~/dotfiles"
-
-alias tmuxconfig="nvim ~/.config/tmux/tmux.conf"
-
-alias nvimconfig="nvim ~/.config/nvim/init.lua"
-
-alias sudoedit="sudo -e"
+alias c='clear'
 alias la="ls -la"
+alias ls='ls --color'
+
+# -----------------------------------------------------------------------------
+# Editor & Configs
+# -----------------------------------------------------------------------------
+alias nvimconfig="nvim ~/.config/nvim/init.lua"
+alias tmuxconfig="nvim ~/.config/tmux/tmux.conf"
+alias zshconfig="nvim ~/.zshrc"
+alias zshaliasconfig="nvim ~/.config/zsh/aliases.zsh"
+alias zshreload="source ~/.zshrc"
+
+# -----------------------------------------------------------------------------
+# Utilities
+# -----------------------------------------------------------------------------
+alias sudoedit="sudo -e"
 alias venvactivate="source venv/bin/activate"
+alias vim='nvim'
+
 ###############################################################################
 # End of file
 ###############################################################################
