@@ -11,9 +11,9 @@ threshold = 100
 style = "bold green"
 
 [character]
-success_symbol = "➜"
-error_symbol = "✗"
-vicmd_symbol = "❮"
+success_symbol = "[➜](bold green)"
+error_symbol = "[✗](bold red)"
+vicmd_symbol = "[❮](bold yellow)"
 
 [cmd_duration]
 min_time = 500
@@ -25,7 +25,7 @@ truncate_to_repo = true
 disabled = false
 
 [hostname]
-ssh_only = false
+ssh_only = true
 format = "[$hostname]($style) in "
 trim_at = "."
 disabled = false
@@ -38,6 +38,24 @@ symbol = "🐍 "
 pyenv_version_name = false
 pyenv_prefix = "pyenv"
 style = "bold yellow"
+disabled = false
+
+[nodejs]
+symbol = "⬢ "
+format = "via [$symbol($version )]($style)"
+style = "bold green"
+disabled = false
+
+[docker_context]
+symbol = "🐳 "
+format = "via [$symbol$context]($style) "
+style = "bold blue"
+disabled = false
+
+[package]
+symbol = "📦 "
+format = "via [$symbol$version]($style) "
+style = "208 bold"
 disabled = false
 
 [username]

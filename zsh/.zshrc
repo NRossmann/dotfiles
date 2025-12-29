@@ -3,7 +3,7 @@ ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
 
 # Download Zinit, if it's not there yet
 if [ ! -d "$ZINIT_HOME" ]; then
-   mkdir -p "$(dirname $ZINIT_HOME)"
+   mkdir -p "$(dirname "$ZINIT_HOME")"
    git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
 fi
 
@@ -29,6 +29,11 @@ zinit snippet OMZP::git
 zinit snippet OMZP::sudo
 zinit snippet OMZP::command-not-found
 
+# Add in zsh plugins
+zinit light zsh-users/zsh-autosuggestions
+zinit light zsh-users/zsh-syntax-highlighting
+zinit light Aloxaf/fzf-tab
+
 # --- History substring search (↑/↓ durchsuchen nur passenden Verlauf) ---
 zinit light zsh-users/zsh-history-substring-search
 
@@ -36,9 +41,6 @@ zinit light zsh-users/zsh-history-substring-search
 autoload -Uz compinit && compinit
 
 zinit cdreplay -q
-
-# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
-[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
 # Keybindings
 bindkey -e
@@ -75,10 +77,28 @@ eval "$(zoxide init --cmd cd zsh)"
 export EDITOR="nvim"
 export VISUAL="nvim"
 
-# Start tmux session on shell startup unless already inside tmux
+# Auto-tmux:
+# - wenn nicht in tmux
+# - attach an die zuletzt verwendete Session, die aktuell NICHT attached ist
+# - sonst neue Session erstellen
 if command -v tmux &> /dev/null; then
   if [ -z "$TMUX" ]; then
-    tmux attach || tmux new-session
+
+    free_last_session="$(
+      tmux ls -F "#{session_last_attached} #{session_attached} #{session_name}" 2>/dev/null \
+      | sort -n \
+      | awk '$2 == 0 {name=$3} END {print name}'
+    )"
+
+    if [ -n "$free_last_session" ]; then
+      tmux attach-session -t "$free_last_session"
+    else
+      tmux new-session
+    fi
   fi
 fi
 
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
